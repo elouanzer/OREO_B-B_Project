@@ -174,8 +174,33 @@ def liste_NEH(flow_shop):
     '''
     seq_NEH = [] # liste dans l'ordre NEH
 
-    pass # remplacer cette ligne
+    #première étape : trier les job selon leur durée
+    jobs = []
+    for job in flow_shop['liste jobs'] :
+        duree = sum(job['durée'])
+        jobs.append((duree, job))
+    jobs = sorted(jobs, key=lambda x: x[0], reverse=True)
 
+    #deuxieme partie : calcul de l'ordo
+    ordo = creer_ordo_vide(flow_shop['nombre machines'])
+    while len(jobs) > 0:
+        min = float('inf')
+        job = jobs[0][1]
+        jobs.pop(0)
+        for j in range(len(ordo['séquence'])+1):
+            seq = ordo['séquence'][:]
+            seq.insert(j, job)
+            ordo_bis = creer_ordo_vide(flow_shop['nombre machines'])
+            ordonnancer_liste_jobs(ordo_bis, seq)
+            if max(ordo_bis['disponibilité']) < min :
+                min = max(ordo_bis['disponibilité'])
+                ordo_min = ordo_bis
+        ordo = ordo_min
+    
+    #maj de la sequence
+    print("Cmax = ", max(ordo['disponibilité']))
+    for job in ordo['séquence']:
+        seq_NEH.append(job['numéro'])
     return seq_NEH
 
 
@@ -189,8 +214,10 @@ Fonctions pour la résolution par évaluation et séparation
 def date_dispo(machine, job):
     ''' Renvoie la valeur de r_kj avec k = 'machine' et j = 'job
     '''
+    if machine > 1 :
+        return sum(job['durée'][:machine])
+    return 0
 
-    pass # remplacer cette ligne
 
 
 # calcul de q_kj
