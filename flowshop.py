@@ -42,6 +42,13 @@ def creer_job(numero_job, duree_op):
             'durée':duree_op,
             'début':[None for i in duree_op]}
 
+def copier_job(job) :
+    return {
+        'numéro':job['numéro'],
+        'durée':job['durée'].copy(),
+        'début':job['début'].copy()
+    }
+
 def afficher_job(job):
     print("Job n°", job['numéro'], 
             "de durée totale", sum(job['durée']), ":")
@@ -66,6 +73,11 @@ def creer_ordo_vide(nb_mach):
     date_dispo = [0 for i in range(nb_mach)]
     return {'séquence':[], 'disponibilité':date_dispo}
 
+def copier_ordo(ordo):
+    return {
+        'séquence': ordo['séquence'].copy(),
+        'disponibilité': ordo['disponibilité'].copy()
+    }
 
 def afficher_ordo(ordo):
     print("Ordre des jobs :", end='')
@@ -172,7 +184,8 @@ def liste_NEH(flow_shop):
     ''' Renvoie la liste obtenue par l'algorithme NEH pour le problème défini
         par 'flow_shop'.
     '''
-    seq_NEH = [] # liste dans l'ordre NEH
+
+    #les jobs du flow_shop ne seront pas ordonnancés : on crée a chaque fois des copis qui seront quant a eux ordonancés
 
     #première étape : trier les job selon leur durée
     jobs = []
@@ -188,19 +201,19 @@ def liste_NEH(flow_shop):
         job = jobs[0][1]
         jobs.pop(0)
         for j in range(len(ordo['séquence'])+1):
-            seq = ordo['séquence'][:]
-            seq.insert(j, job)
+            seq = []
+            for j2 in ordo['séquence'] : 
+                seq.append(copier_job(j2))
+            seq.insert(j, copier_job(job))
             ordo_bis = creer_ordo_vide(flow_shop['nombre machines'])
             ordonnancer_liste_jobs(ordo_bis, seq)
-            if max(ordo_bis['disponibilité']) < min :
+            if ordo_bis['disponibilité'][-1] < min :
                 min = max(ordo_bis['disponibilité'])
-                ordo_min = ordo_bis
-        ordo = ordo_min
+                ordo_min = copier_ordo(ordo_bis)
+        ordo = copier_ordo(ordo_min)
     
     #maj de la sequence
-    print("Cmax = ", max(ordo['disponibilité']))
-    for job in ordo['séquence']:
-        seq_NEH.append(job['numéro'])
+    seq_NEH = ordo['séquence'][:]
     return seq_NEH
 
 
@@ -214,9 +227,9 @@ Fonctions pour la résolution par évaluation et séparation
 def date_dispo(machine, job):
     ''' Renvoie la valeur de r_kj avec k = 'machine' et j = 'job
     '''
-    if machine > 1 :
-        return sum(job['durée'][:machine])
-    return 0
+    if machine == 0 :
+        return 0
+    return sum(job['durée'][:machine])
 
 
 
@@ -224,8 +237,9 @@ def date_dispo(machine, job):
 def duree_latence(machine, job, nombre_machines):
     ''' Renvoie la valeur de q_kj avec k = 'machine' et j = 'job
     '''
-
-    pass # remplacer cette ligne
+    if machine == nombre_machines :
+        return 0
+    return sum(job['durée'][machine+1:])
 
 
 # calcul de la somme des durées des opérations d'une liste
@@ -234,8 +248,10 @@ def duree_jobs(machine, liste_jobs):
     ''' Renvoie la somme des durées des opérations sur 'machine' des jobs de 
         'liste_jobs'
     '''
-
-    pass # remplacer cette ligne
+    s = 0
+    for job in liste_jobs :
+        s += job['durée'][machine]
+    return s
 
 
 ################################################################################
@@ -248,8 +264,15 @@ def eval(ordo, liste_jobs):
 
     LB_machine = [] # liste des valeurs LB_k (pour 1 <= k <= m)
 
-    pass # remplacer cette ligne
-
+    nb_machines = len(ordo['disponibilité'])
+    for k in range(nb_machines) :
+        r_kj = []
+        q_kj = []
+        for job in liste_jobs :
+            r_kj.append(date_dispo(k, job))
+            q_kj.append(duree_latence(k, job, nb_machines))
+        LB_k = min(r_kj) + min(q_kj) + duree_jobs(k, liste_jobs)
+        LB_machine.append(LB_k)
     return max(LB_machine)
 
 def creer_sommet(evaluation, places, non_places, numero):
@@ -272,7 +295,7 @@ def evaluation_separation(flowshop):
     l_NEH = liste_NEH(flowshop)
     ordo = creer_ordo_vide(flowshop['nombre machines'])
     ordonnancer_liste_jobs(ordo, l_NEH)
-    val_solution = ordo['durée']
+    val_solution = ordo['disponibilité'][-1]
     print("Valeur solution de départ =", val_solution)
     liste_solution = [job for job in l_NEH]
 
