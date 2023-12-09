@@ -80,7 +80,6 @@ def copier_ordo(ordo):
         'disponibilité': ordo['disponibilité'].copy()
     }
 
-
 def afficher_ordo(ordo):
     print("Ordre des jobs :", end='')
     for job in ordo['séquence']:
