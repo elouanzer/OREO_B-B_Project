@@ -13,6 +13,7 @@ __version__ = '0.5'
 # La résolution par évaluation et séparation utilise une file de priorité pour 
 # stocker et trier les sommets. Python propose le module 'heapq' :
 import heapq
+import itertools
 
 # On utilise deux fonctions du module 'heapq' :
 #
@@ -42,6 +43,13 @@ def creer_job(numero_job, duree_op):
             'durée':duree_op,
             'début':[None for i in duree_op]}
 
+def copier_job(job) :
+    return {
+        'numéro':job['numéro'],
+        'durée':job['durée'].copy(),
+        'début':job['début'].copy()
+    }
+
 def afficher_job(job):
     print("Job n°", job['numéro'], 
             "de durée totale", sum(job['durée']), ":")
@@ -65,6 +73,12 @@ def creer_ordo_vide(nb_mach):
 
     date_dispo = [0 for i in range(nb_mach)]
     return {'séquence':[], 'disponibilité':date_dispo}
+
+def copier_ordo(ordo):
+    return {
+        'séquence': ordo['séquence'].copy(),
+        'disponibilité': ordo['disponibilité'].copy()
+    }
 
 
 def afficher_ordo(ordo):
@@ -172,11 +186,41 @@ def liste_NEH(flow_shop):
     ''' Renvoie la liste obtenue par l'algorithme NEH pour le problème défini
         par 'flow_shop'.
     '''
-    seq_NEH = [] # liste dans l'ordre NEH
 
-    pass # remplacer cette ligne
+    #les jobs du flow_shop ne seront pas ordonnancés : on crée a chaque fois des copis qui seront quant a eux ordonancés
 
+    #première étape : trier les job selon leur durée
+    jobs = []
+    for job in flow_shop['liste jobs'] :
+        duree = sum(job['durée'])
+        jobs.append((duree, job))
+    jobs = sorted(jobs, key=lambda x: x[0], reverse=True)
+
+    #deuxieme partie : calcul de l'ordo
+    ordo = creer_ordo_vide(flow_shop['nombre machines'])
+    while len(jobs) > 0:
+        min = float('inf')
+        job = jobs[0][1]
+        jobs.pop(0)
+        for j in range(len(ordo['séquence'])+1):
+            seq = []
+            for j2 in ordo['séquence'] : 
+                seq.append(copier_job(j2))
+            seq.insert(j, copier_job(job))
+            ordo_bis = creer_ordo_vide(flow_shop['nombre machines'])
+            ordonnancer_liste_jobs(ordo_bis, seq)
+            if ordo_bis['disponibilité'][-1] < min :
+                min = max(ordo_bis['disponibilité'])
+                ordo_min = copier_ordo(ordo_bis)
+        ordo = copier_ordo(ordo_min)
+    
+    #maj de la sequence
+    seq_NEH = ordo['séquence'][:]
     return seq_NEH
+
+    
+
+
 
 
 '''
@@ -189,8 +233,15 @@ Fonctions pour la résolution par évaluation et séparation
 def date_dispo(machine, job):
     ''' Renvoie la valeur de r_kj avec k = 'machine' et j = 'job
     '''
+    r_kj = 0
 
-    pass # remplacer cette ligne
+    if (machine == 1): 
+        return r_kj
+    else : 
+        for i in range(1,machine - 1): 
+            r_kj += job['durée'][i]
+    
+        return r_kj
 
 
 # calcul de q_kj
@@ -198,7 +249,16 @@ def duree_latence(machine, job, nombre_machines):
     ''' Renvoie la valeur de q_kj avec k = 'machine' et j = 'job
     '''
 
-    pass # remplacer cette ligne
+    q_kj = 0
+
+    if (machine == nombre_machines): 
+        return q_kj 
+    else: 
+        for i in range(machine+1, nombre_machines): 
+            q_kj += job['durée'][i]
+
+        return q_kj
+
 
 
 # calcul de la somme des durées des opérations d'une liste
@@ -208,7 +268,11 @@ def duree_jobs(machine, liste_jobs):
         'liste_jobs'
     '''
 
-    pass # remplacer cette ligne
+    sum = 0
+    
+    for job in liste_jobs: 
+        sum += job['durée'][machine]
+    return sum
 
 
 ################################################################################
@@ -218,12 +282,27 @@ def eval(ordo, liste_jobs):
     ''' Renvoie la valeur du minorant en tenant compte de l'ordonnancement 
         'ordo' et des jobs non places de liste_jobs
     '''
-
     LB_machine = [] # liste des valeurs LB_k (pour 1 <= k <= m)
+    ordonnancer_liste_jobs(ordo, liste_jobs)
+    nb_machines = len(ordo['disponibilité'])
 
-    pass # remplacer cette ligne
+    for machine in range(0, nb_machines): 
+        dispos = []
+        latences = []
 
+        for j in range(0, len(liste_jobs)): 
+            #print("liste_jobs_taille:", len(liste_jobs))
+            dispos.append(date_dispo(machine, copier_job(copier_ordo(ordo)['séquence'][j])))
+            latences.append(duree_latence(machine, copier_job(copier_ordo(ordo)['séquence'][j]), nb_machines))
+        minorant_dispo = min(dispos)
+        minorant_latences = min(latences)
+        somme_durees = duree_jobs(machine, liste_jobs)
+
+        LB_k = minorant_dispo + somme_durees + minorant_latences
+        LB_machine.append(LB_k)
+    
     return max(LB_machine)
+
 
 def creer_sommet(evaluation, places, non_places, numero):
     # liste des jobs déjà placés
@@ -245,8 +324,9 @@ def evaluation_separation(flowshop):
     l_NEH = liste_NEH(flowshop)
     ordo = creer_ordo_vide(flowshop['nombre machines'])
     ordonnancer_liste_jobs(ordo, l_NEH)
-    val_solution = ordo['durée']
-    print("Valeur solution de départ =", val_solution)
+    #val_solution = ordo['durée']
+    val_solution = ordo['disponibilité'][flowshop['nombre machines']-1]
+    #print("Valeur solution de départ =", val_solution)
     liste_solution = [job for job in l_NEH]
 
     arbre = []  # utilisé sous forme de file de priorité avec heapq
@@ -262,7 +342,23 @@ def evaluation_separation(flowshop):
     heapq.heappush(arbre, s)
 
     while arbre != []:
-        pass # remplacer cette ligne
+        
+        s = heapq.heappop(arbre)
 
+        for j in range(len(s[3])) : 
+            
+            curr = s[3][0]
+            s[2].append(curr)
+            del s[3][0]
+            numero += 1
+
+            new = creer_sommet(evaluation, s[2].copy(), l_NEH, numero)
+            heapq.heappush(arbre, new)
+        
+        liste_solution = [s[2][i] for i in range(len(s[2]))]
+        ordonnancer_liste_jobs(copier_ordo(ordo), liste_solution)
+        val_solution = ordo['disponibilité'][flowshop['nombre machines']-1]
+
+    #print("Valeur solution finale =", val_solution)
 
     return val_solution, liste_solution, numero
