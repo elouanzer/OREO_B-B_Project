@@ -120,6 +120,8 @@ def ordonnancer_job(ordo, job):
         job['début'][i] = max(dispo[i], dispo[i-1])
         dispo[i] = job['début'][i] + job['durée'][i]
 
+    nb_machines = len(ordo['disponibilité'])
+    ordo['durée'] = ordo['disponibilité'][nb_machines-1]
     
 
 
@@ -293,11 +295,13 @@ def eval(ordo, liste_jobs):
             #print("liste_jobs_taille:", len(liste_jobs))
             dispos.append(date_dispo(machine, copier_job(copier_ordo(ordo)['séquence'][j])))
             latences.append(duree_latence(machine, copier_job(copier_ordo(ordo)['séquence'][j]), nb_machines))
+        
+        #print("dispos", dispos)
         minorant_dispo = min(dispos)
         minorant_latences = min(latences)
         somme_durees = duree_jobs(machine, liste_jobs)
 
-        LB_k = minorant_dispo + somme_durees + minorant_latences
+        LB_k = minorant_dispo + minorant_latences + somme_durees
         LB_machine.append(LB_k)
     
     return max(LB_machine)
@@ -323,8 +327,8 @@ def evaluation_separation(flowshop):
     l_NEH = liste_NEH(flowshop)
     ordo = creer_ordo_vide(flowshop['nombre machines'])
     ordonnancer_liste_jobs(ordo, l_NEH)
-    #val_solution = ordo['durée']
-    val_solution = ordo['disponibilité'][flowshop['nombre machines']-1]
+    val_solution = ordo['durée']
+    #val_solution = ordo['disponibilité'][flowshop['nombre machines']-1]
     #print("Valeur solution de départ =", val_solution)
     liste_solution = [job for job in l_NEH]
 
@@ -342,22 +346,35 @@ def evaluation_separation(flowshop):
 
     while arbre != []:
         
-        s = heapq.heappop(arbre)
+        #s = heapq.heappop(arbre)
+        s_eval, s_numero, s_places, s_non_places = heapq.heappop(arbre)
 
-        for j in range(len(s[3])) : 
+        for j in s_non_places : 
+
+            if (s_eval < val_solution): 
+
+                s_places.append(j)
+                s_non_places.remove(j)
+                s_numero += 1
+                s_eval = eval(copier_ordo(ordo), s_non_places.copy())
+                new = creer_sommet(s_eval, s_places.copy(), s_non_places.copy(), s_numero)
+                #new = creer_sommet(evaluation, places, s[3].copy(), numero)
+                heapq.heappush(arbre, new)
+
             
-            curr = s[3][0]
-            s[2].append(curr)
-            del s[3][0]
-            numero += 1
-
-            new = creer_sommet(evaluation, s[2].copy(), l_NEH, numero)
-            heapq.heappush(arbre, new)
+                ordo_copie = creer_ordo_vide(flowshop['nombre machines'])
+                ordonnancer_liste_jobs(ordo_copie, s_places)
         
-        liste_solution = [s[2][i] for i in range(len(s[2]))]
-        ordonnancer_liste_jobs(copier_ordo(ordo), liste_solution)
-        val_solution = ordo['disponibilité'][flowshop['nombre machines']-1]
+        # TOUS LES JOBS ONT ETE PLACES 
+        s_sol = ordo['durée']
+        if s_sol < val_solution: 
+            val_solution = s_sol 
+            liste_solution = s_places.copy()
 
-    #print("Valeur solution finale =", val_solution)
+        """liste_solution = [s[2][i] for i in range(len(s[2]))]
+        ordonnancer_liste_jobs(copier_ordo(ordo), liste_solution)
+        val_solution = ordo['durée']"""
+
+    print("Valeur solution finale =", val_solution)
 
     return val_solution, liste_solution, numero
