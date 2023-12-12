@@ -41,7 +41,6 @@ if __name__ == "__main__":
     print("\n")
     print("JEU 4 : ")
     f4 = flowshop.lire_flowshop("jeu4-844.txt")
-    
     print("Ordonnancement NEH : ")
     NEH4 = flowshop.liste_NEH(f4)
     for job in NEH4 : 

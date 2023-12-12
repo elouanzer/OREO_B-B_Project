@@ -233,32 +233,18 @@ Fonctions pour la résolution par évaluation et séparation
 def date_dispo(machine, job):
     ''' Renvoie la valeur de r_kj avec k = 'machine' et j = 'job
     '''
-    r_kj = 0
-
-    if (machine == 1): 
-        return r_kj
-    else : 
-        for i in range(1,machine - 1): 
-            r_kj += job['durée'][i]
-    
-        return r_kj
+    if machine == 0 :
+        return 0
+    return sum(job['durée'][:machine])
 
 
 # calcul de q_kj
 def duree_latence(machine, job, nombre_machines):
     ''' Renvoie la valeur de q_kj avec k = 'machine' et j = 'job
     '''
-
-    q_kj = 0
-
-    if (machine == nombre_machines): 
-        return q_kj 
-    else: 
-        for i in range(machine+1, nombre_machines): 
-            q_kj += job['durée'][i]
-
-        return q_kj
-
+    if machine == nombre_machines :
+        return 0
+    return sum(job['durée'][machine+1:])
 
 
 # calcul de la somme des durées des opérations d'une liste
@@ -282,12 +268,15 @@ def eval(ordo, liste_jobs):
     ''' Renvoie la valeur du minorant en tenant compte de l'ordonnancement 
         'ordo' et des jobs non places de liste_jobs
     '''
+    #si les jobs sont tous listés, on renvoie Cmax
     if liste_jobs==[]:
         return ordo['disponibilité'][-1]
+    
     LB_machine = [] # liste des valeurs LB_k (pour 1 <= k <= m)
 
     nb_machines = len(ordo['disponibilité'])
     for k in range(nb_machines) :
+        #on calcul LB_k, donc on calcul tous les r_kj et q_kj
         r_kj = []
         q_kj = []
         for job in liste_jobs :
@@ -337,29 +326,28 @@ def evaluation_separation(flowshop):
     heapq.heappush(arbre, s)
 
     while arbre != []:
+        #on traite le sommet d'ou l'evaluation est la plus faible (sommet le plus prometteur)
         s_eval, _, s_places, s_non_places = heapq.heappop(arbre)
-        #on ordonnance les jobs qui ne sont pas encore placés
+        #on ordonnance les jobs qui ne sont pas encore placés et on test ces nouveaux ordo
         for job in s_non_places : 
             curr = copier_job(job)
-            places = s_places.copy()
+            places = s_places[:] + [curr]
             non_places = s_non_places.copy()
-            places.append(curr)
             non_places.remove(curr)
             curr_ordo = creer_ordo_vide(flowshop['nombre machines'])
             ordonnancer_liste_jobs(curr_ordo, places)
             curr_eval = eval(curr_ordo, non_places)
+            #on regarde sur l'ordo actuel peut encore fournir une bonne solution
             if curr_eval <= val_solution :
-                numero += 1
-                new = creer_sommet(curr_eval, places, non_places, numero)
-                heapq.heappush(arbre, new)
-        if s_non_places==[]:
-            ordo_fini = creer_ordo_vide(flowshop['nombre machines'])
-            ordonnancer_liste_jobs(ordo_fini, s_places)
-            duree = eval(ordo_fini, s_non_places)
-            if duree <= val_solution :
-                liste_solution = [copier_job(job) for job in s_places]
-                val_solution = ordo_fini['disponibilité'][-1]
-
+                #on ajoute le sommet a l'arbre car il reste des jobs a traiter
+                if non_places != []:
+                    numero += 1
+                    new = creer_sommet(curr_eval, places, non_places, numero)
+                    heapq.heappush(arbre, new)
+                #la solution actuelle est meilleure : on la sauvegarde
+                else : 
+                    liste_solution = [copier_job(job) for job in s_places]
+                    val_solution = curr_eval
     #print("Valeur solution finale =", val_solution)
 
     return val_solution, liste_solution, numero
