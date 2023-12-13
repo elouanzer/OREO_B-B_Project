@@ -282,7 +282,9 @@ def eval(ordo, liste_jobs):
         for job in liste_jobs :
             r_kj.append(date_dispo(k, job))
             q_kj.append(duree_latence(k, job, nb_machines))
-        LB_k = min(r_kj) + min(q_kj) + duree_jobs(k, liste_jobs)
+        #on applique la formule en l'améliorant pour agrandir la taille du minorant et 
+        #donc supprimer plus de solution inutile
+        LB_k = max(min(r_kj),ordo['disponibilité'][k]) + min(q_kj) + duree_jobs(k, liste_jobs)
         LB_machine.append(LB_k)
     return max(LB_machine)
 
@@ -338,7 +340,7 @@ def evaluation_separation(flowshop):
             ordonnancer_liste_jobs(curr_ordo, places)
             curr_eval = eval(curr_ordo, non_places)
             #on regarde sur l'ordo actuel peut encore fournir une bonne solution
-            if curr_eval <= val_solution :
+            if curr_eval < val_solution :
                 #on ajoute le sommet a l'arbre car il reste des jobs a traiter
                 if non_places != []:
                     numero += 1
