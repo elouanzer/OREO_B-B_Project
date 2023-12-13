@@ -120,6 +120,8 @@ def ordonnancer_job(ordo, job):
         job['début'][i] = max(dispo[i], dispo[i-1])
         dispo[i] = job['début'][i] + job['durée'][i]
 
+    nb_machines = len(ordo['disponibilité'])
+    ordo['durée'] = ordo['disponibilité'][nb_machines-1]
     
 
 
@@ -271,7 +273,6 @@ def eval(ordo, liste_jobs):
     #si les jobs sont tous listés, on renvoie Cmax
     if liste_jobs==[]:
         return ordo['disponibilité'][-1]
-    
     LB_machine = [] # liste des valeurs LB_k (pour 1 <= k <= m)
 
     nb_machines = len(ordo['disponibilité'])
